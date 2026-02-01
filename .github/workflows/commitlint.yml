@@ -1,0 +1,48 @@
+name: commitlint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch all history so commitlint can compare SHAs
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: "npm" # This requires package-lock.json to be committed!
+
+      - name: Install Dependencies
+        # npm ci is faster and more reliable than npm install in CI
+        run: npm ci
+
+      - name: Validate PR commits
+        if: github.event_name == 'pull_request'
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Validate Push commits
+        if: github.event_name == 'push'
+        run: |
+          # If it's a new branch or a force-push, we might not have a valid 'before' SHA.
+          # We check the 'commits' array in the event payload to see how many were pushed.
+          COUNT=$(jq '.commits | length' < "$GITHUB_EVENT_PATH")
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No new commits found (possibly a tag push). Skipping."
+            exit 0
+          fi
+
+          # Lint from the commit before the first one in this push, up to the latest.
+          # ~1 refers to the parent of the first commit in the push.
+          npx commitlint --from HEAD~$COUNT --to HEAD --verbose
