@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  zmk:
+    container_name: zmk-dev
+    build:
+      context: ../zmk/.devcontainer
+      dockerfile: Dockerfile
+    volumes:
+      - ../zmk:/workspaces/zmk
+      - ../zmk-module-dasbob:/workspaces/zmk-dasbob
+      - ../zmk-config:/workspaces/zmk-config
+      # - ../zmk-adaptive-key:/workspaces/zmk-adaptive-key # add additional local modules as required
+    working_dir: /workspaces/zmk
+    # Disables SELinux separation to avoid permission issues without expensive relabeling
+    security_opt:
+      - label=disable
+    # Keep the container running
+    tty: true
+    stdin_open: true
